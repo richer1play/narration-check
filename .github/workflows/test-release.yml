@@ -1,0 +1,182 @@
+name: 배포 파일 시험
+
+# 릴리스(아직 공개하지 않은 임시 릴리스도 됨)에 올린 zip을 실제 Windows와 Mac에서
+# 사용자처럼 풀고, 시작 파일로 실행하고, 실제로 검사하고, 검수 화면을 확인합니다.
+# 시험용 녹음(ci/test_narration.mp3)은 지어낸 문장을 합성 음성으로 읽은 것이고 실수 두 곳이 들어 있습니다.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 시험할 릴리스 태그 (예 v1.5.3)
+        required: true
+        type: string
+      publish:
+        description: 모두 통과하면 이 릴리스를 공개하고 최신 버전으로 지정
+        type: boolean
+        default: false
+
+permissions:
+  contents: write   # 임시 릴리스의 파일을 받고, publish를 켰을 때 공개하는 데 필요
+
+env:
+  TAG: ${{ inputs.tag }}
+  PLAYWRIGHT: "1.63.0"
+
+jobs:
+  windows:
+    name: Windows · 정확하게
+    runs-on: windows-latest
+    timeout-minutes: 80
+    env:
+      PYTHONUTF8: "1"   # 한글 출력 (Windows 콘솔 인코딩 대신 UTF-8)
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: 릴리스 파일 받기
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python ci/fetch_release.py "$TAG" win-x64.zip dl
+
+      - name: 압축 풀기 (한글이 든 폴더 경로)
+        shell: pwsh
+        run: |
+          $zip = (Get-ChildItem dl -Filter *.zip | Select-Object -First 1).FullName
+          Expand-Archive -Path $zip -DestinationPath C:\tester
+          $pkg = (Get-ChildItem C:\tester -Directory | Select-Object -First 1).FullName
+          Get-ChildItem $pkg | Format-Table Name, Length
+          "PKG=$pkg" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: 시작 파일(.exe)로 실행
+        shell: pwsh
+        run: |
+          $exe = (Get-ChildItem $env:PKG -Filter *.exe | Select-Object -First 1).FullName
+          Start-Process -FilePath $exe -WorkingDirectory $env:PKG
+          Start-Sleep -Seconds 10
+          Get-Process | Where-Object { $_.ProcessName -like 'python*' } | Format-Table ProcessName, Id
+
+      - name: 실제 검사 (정확하게)
+        shell: pwsh
+        run: |
+          $version = $env:TAG.TrimStart('v')
+          & "$env:PKG\python\python.exe" ci\smoke.py --model large-v3 --version $version --out out
+
+      - name: 브라우저 준비
+        shell: bash
+        run: npm install --no-save --no-package-lock "playwright@$PLAYWRIGHT" && npx playwright install chromium
+
+      - name: 검수 화면 시험
+        shell: bash
+        run: node ci/ui_smoke.mjs "$(cat out/base.txt)" "$(cat out/job_id.txt)" out
+
+      - name: 프로그램 끝내기
+        if: always()
+        shell: bash
+        run: |
+          base=$(cat out/base.txt 2>/dev/null || echo http://127.0.0.1:8000)
+          curl -s -X POST -H "x-ncheck: 1" "$base/api/quit?force=true" || true
+          mkdir -p out/logs
+          cp "$PKG/data/server.log" out/logs/ 2>/dev/null || true
+          for f in "$PKG"/data/jobs/*/log.txt; do [ -f "$f" ] && cp "$f" "out/logs/job-$(basename "$(dirname "$f")").txt"; done
+          for i in $(seq 1 30); do curl -s -o /dev/null "$base/healthz" || { echo "프로그램이 끝났습니다"; exit 0; }; sleep 1; done
+          echo "프로그램이 끝나지 않았습니다"; exit 1
+
+      - name: 기록 올리기
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: out
+          if-no-files-found: ignore
+
+  mac:
+    name: Mac Apple Silicon · 빠르게
+    runs-on: macos-latest
+    timeout-minutes: 80
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: 릴리스 파일 받기
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python ci/fetch_release.py "$TAG" mac-arm64.zip dl
+
+      - name: 인터넷에서 받은 파일처럼 표시하고 압축 풀기 (Finder와 같은 방식)
+        run: |
+          zip=$(ls dl/*.zip)
+          xattr -w com.apple.quarantine "0083;$(printf %x "$(date +%s)");Safari;" "$zip"
+          ditto -x -k "$zip" "$HOME"
+          ls -la ~/오독체크
+          echo "압축 푼 Python의 격리 표시: $(xattr -p com.apple.quarantine ~/오독체크/python/bin/python3.12 2>/dev/null || echo 없음)"
+
+      - name: (참고) 표시가 붙은 채로 실행하면
+        continue-on-error: true
+        run: |
+          spctl --assess --type execute -vv ~/오독체크/python/bin/python3.12 2>&1 || true
+          perl -e 'alarm 60; exec @ARGV' ~/오독체크/python/bin/python3.12 -c "print('Python 실행됨')" 2>&1 || echo "실행 안 됨 (코드 $?)"
+
+      - name: 사용법의 터미널 한 줄 (open 대신 바로 실행)
+        run: |
+          cd ~/오독체크 && xattr -dr com.apple.quarantine .
+          left=$(xattr -lr ~/오독체크 | grep -c com.apple.quarantine || true)
+          echo "남은 격리 표시: $left"
+          test "$left" = "0"
+          cd ~/오독체크 && (nohup bash "오독체크 시작.command" > "$RUNNER_TEMP/launcher.log" 2>&1 &)
+          sleep 10
+          cat "$RUNNER_TEMP/launcher.log"
+
+      - name: 실제 검사 (빠르게)
+        run: ~/오독체크/python/bin/python3.12 ci/smoke.py --model turbo --version "${TAG#v}" --out out
+
+      - name: 브라우저 준비
+        run: npm install --no-save --no-package-lock "playwright@$PLAYWRIGHT" && npx playwright install chromium
+
+      - name: 검수 화면 시험
+        run: node ci/ui_smoke.mjs "$(cat out/base.txt)" "$(cat out/job_id.txt)" out
+
+      - name: 프로그램 끝내기
+        if: always()
+        run: |
+          base=$(cat out/base.txt 2>/dev/null || echo http://127.0.0.1:8000)
+          curl -s -X POST -H "x-ncheck: 1" "$base/api/quit?force=true" || true
+          for i in $(seq 1 30); do grep -q "프로그램이 끝났습니다" "$RUNNER_TEMP/launcher.log" 2>/dev/null && break; sleep 1; done
+          mkdir -p out/logs
+          cp "$RUNNER_TEMP/launcher.log" ~/오독체크/data/server.log out/logs/ 2>/dev/null || true
+          for f in ~/오독체크/data/jobs/*/log.txt; do [ -f "$f" ] && cp "$f" "out/logs/job-$(basename "$(dirname "$f")").txt"; done
+          cat "$RUNNER_TEMP/launcher.log"
+          grep -q "프로그램이 끝났습니다" "$RUNNER_TEMP/launcher.log"
+
+      - name: 기록 올리기
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mac
+          path: out
+          if-no-files-found: ignore
+
+  publish:
+    name: 공개
+    needs: [windows, mac]
+    if: ${{ inputs.publish }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: 릴리스를 공개하고 최신 버전으로 지정
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          id=$(gh api "repos/$REPO/releases?per_page=100" --jq ".[] | select(.tag_name==\"$TAG\") | .id")
+          test -n "$id"
+          gh api -X PATCH "repos/$REPO/releases/$id" -F draft=false -f make_latest=true --jq '.html_url'
