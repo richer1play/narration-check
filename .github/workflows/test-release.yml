@@ -1,9 +1,15 @@
 name: 배포 파일 시험
 
-# 릴리스(아직 공개하지 않은 임시 릴리스도 됨)에 올린 zip을 실제 Windows와 Mac에서
-# 사용자처럼 풀고, 시작 파일로 실행하고, 실제로 검사하고, 검수 화면을 확인합니다.
+# 릴리스에 올린 zip을 실제 Windows와 Mac에서 사용자처럼 풀고, 시작 파일로 실행하고,
+# 실제로 검사하고, 검수 화면을 확인합니다.
+# - 릴리스를 'pre-release'(시험판)로 공개하면 자동으로 시험하고, 모두 통과하면 정식 최신 버전으로 바꿉니다.
+#   (시험판인 동안 releases/latest 링크는 이전 버전을 가리킵니다.)
+# - 정식으로 바로 공개한 릴리스도 자동으로 시험합니다(결과만 확인).
+# - Actions 탭의 Run workflow로 아무 릴리스나 다시 시험할 수 있습니다.
 # 시험용 녹음(ci/test_narration.mp3)은 지어낸 문장을 합성 음성으로 읽은 것이고 실수 두 곳이 들어 있습니다.
 on:
+  release:
+    types: [published]
   workflow_dispatch:
     inputs:
       tag:
@@ -11,20 +17,25 @@ on:
         required: true
         type: string
       publish:
-        description: 모두 통과하면 이 릴리스를 공개하고 최신 버전으로 지정
+        description: 모두 통과하면 이 릴리스를 정식 최신 버전으로 지정
         type: boolean
         default: false
 
 permissions:
-  contents: write   # 임시 릴리스의 파일을 받고, publish를 켰을 때 공개하는 데 필요
+  contents: write   # 임시 릴리스의 파일을 받고, 통과한 시험판을 정식으로 바꾸는 데 필요
+
+concurrency:
+  group: test-${{ github.event.release.tag_name || inputs.tag }}
 
 env:
-  TAG: ${{ inputs.tag }}
+  TAG: ${{ github.event.release.tag_name || inputs.tag }}
   PLAYWRIGHT: "1.63.0"
 
 jobs:
   windows:
     name: Windows · 정확하게
+    # 프로그램 릴리스(v로 시작)만 시험합니다. 모델 예비 사본(models) 같은 릴리스는 건너뜁니다.
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.event.release.tag_name, 'v')
     runs-on: windows-latest
     timeout-minutes: 80
     env:
@@ -97,6 +108,7 @@ jobs:
 
   mac:
     name: Mac Apple Silicon · 빠르게
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.event.release.tag_name, 'v')
     runs-on: macos-latest
     timeout-minutes: 80
     steps:
@@ -167,16 +179,16 @@ jobs:
           if-no-files-found: ignore
 
   publish:
-    name: 공개
+    name: 정식 최신 버전으로 지정
     needs: [windows, mac]
-    if: ${{ inputs.publish }}
+    if: (github.event_name == 'release' && github.event.release.prerelease) || (github.event_name == 'workflow_dispatch' && inputs.publish)
     runs-on: ubuntu-latest
     steps:
-      - name: 릴리스를 공개하고 최신 버전으로 지정
+      - name: 시험판을 정식으로 바꾸고 최신 버전으로 지정
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
         run: |
           id=$(gh api "repos/$REPO/releases?per_page=100" --jq ".[] | select(.tag_name==\"$TAG\") | .id")
           test -n "$id"
-          gh api -X PATCH "repos/$REPO/releases/$id" -F draft=false -f make_latest=true --jq '.html_url'
+          gh api -X PATCH "repos/$REPO/releases/$id" -F draft=false -F prerelease=false -f make_latest=true --jq '.html_url'
