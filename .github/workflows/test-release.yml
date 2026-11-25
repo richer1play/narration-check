@@ -4,6 +4,7 @@ name: 배포 파일 시험
 # 실제로 검사하고, 검수 화면을 확인합니다.
 # - 릴리스를 'pre-release'(시험판)로 공개하면 자동으로 시험하고, 모두 통과하면 정식 최신 버전으로 바꿉니다.
 #   (시험판인 동안 releases/latest 링크는 이전 버전을 가리킵니다.)
+# - 통과해서 정식으로 바꾼 뒤에는 그 zip으로 PACKAGE.md와 docs/package(zip 안 고지 원문)를 새로 만들어 main에 올립니다.
 # - 정식으로 바로 공개한 릴리스도 자동으로 시험합니다(결과만 확인).
 # - Actions 탭의 Run workflow로 아무 릴리스나 다시 시험할 수 있습니다.
 # 시험용 녹음(ci/test_narration.mp3)은 지어낸 문장을 합성 음성으로 읽은 것이고 실수 두 곳이 들어 있습니다.
@@ -192,3 +193,21 @@ jobs:
           id=$(gh api "repos/$REPO/releases?per_page=100" --jq ".[] | select(.tag_name==\"$TAG\") | .id")
           test -n "$id"
           gh api -X PATCH "repos/$REPO/releases/$id" -F draft=false -F prerelease=false -f make_latest=true --jq '.html_url'
+
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: zip 안에 든 것 다시 정리 (PACKAGE.md, docs/package)
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          python3 ci/fetch_release.py "$TAG" win-x64.zip dl
+          python3 ci/fetch_release.py "$TAG" mac-arm64.zip dl
+          python3 ci/make_package_doc.py "${TAG#v}" dl/*-win-x64.zip dl/*-mac-arm64.zip
+          git add -A PACKAGE.md docs/package
+          if git diff --cached --quiet; then echo "PACKAGE.md: 바뀐 것 없음"; exit 0; fi
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -q -m "PACKAGE.md: what the $TAG zips contain"
+          for i in 1 2 3; do git push -q origin HEAD:main && exit 0; git pull -q --rebase origin main; done
+          exit 1
