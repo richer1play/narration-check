@@ -7,6 +7,7 @@
 
 **받기: [최신 버전](https://github.com/richer1play/narration-check/releases/latest)** (Windows 10/11, Mac Apple Silicon)
 · 사용법은 받은 폴더의 `사용법.pdf`에 있습니다.
+· zip 안에 무엇이 들어 있는지는 [PACKAGE.md](PACKAGE.md)에 한눈에 정리돼 있습니다.
 
 - 오류 문의: richer1play@gmail.com
 - 이용 조건: 개인·업무용 무료, 다시 배포·고쳐서 배포·판매 금지, 결과 보증 없음. 자세한 내용과 함께 든 공개 소프트웨어의 라이선스는

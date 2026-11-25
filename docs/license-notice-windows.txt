@@ -1,0 +1,71 @@
+﻿나레이션 오독 체크 1.5.4 (데모 버전) · 이용 조건과 라이선스 안내
+
+[이용 조건]
+  - 나레이션 오독 체크는 개인·업무용으로 무료로 쓸 수 있습니다. 저작권은 제작자에게 있습니다.
+  - 공식 배포처 밖에서 다시 배포하거나, 고쳐서 배포하거나, 판매하지 마세요.
+    공식 배포처: https://github.com/richer1play/narration-check/releases/latest
+  - 결과는 음성 인식에 기반한 참고용이며 정확성을 보장하지 않습니다.
+    법이 허용하는 범위에서, 이 프로그램을 써서 생긴 손해에 대해 책임지지 않습니다.
+  - 이후 버전이나 추가 기능은 유료로 제공될 수 있습니다. 이미 받은 버전은 계속 무료로 쓸 수 있습니다.
+  - 오류 문의: richer1play@gmail.com
+
+[OpenAI Whisper] 음성 인식의 특징 계산과 디코딩은 OpenAI Whisper의 방식을 따라 이 프로그램에서 다시 구현했습니다.
+  MIT License, Copyright (c) 2022 OpenAI (전문: licenses/Whisper-MIT.txt)
+
+이 프로그램은 아래 공개 소프트웨어를 함께 담고 있으며, 각 소프트웨어는 저마다의 라이선스를 따릅니다.
+라이선스 전문은 licenses 폴더, python/LICENSE.txt, 그리고 python 폴더 안 각 패키지의 *.dist-info 폴더에 있습니다.
+
+[FFmpeg] 오디오를 읽고 재생용 파일을 만드는 데 씁니다.
+  FFmpeg 9.0.2 (gyan.dev essentials 빌드, Windows x64), GNU GPL v3 (전문: licenses/GPL-3.0.txt)
+  python/Lib/site-packages/imageio_ffmpeg/binaries/ffmpeg-win-x86_64-v9.0.2.exe 에 들어 있으며, 이 프로그램은 FFmpeg를 따로 실행할 뿐 고치거나 합치지 않았습니다.
+  FFmpeg 소스 코드: https://ffmpeg.org/releases/ffmpeg-9.0.2.tar.xz
+  이 빌드를 만든 곳(함께 든 라이브러리 안내): https://www.gyan.dev/ffmpeg/builds/ (같은 빌드: https://github.com/GyanD/codexffmpeg/releases/tag/9.0.2)
+
+[Python] CPython 3.12.16 (python-build-standalone), Python Software Foundation License (전문: python/LICENSE.txt)
+  Python에 함께 든 OpenSSL(Apache License 2.0, 전문: licenses/Apache-2.0.txt), SQLite, zlib, libffi, bzip2, xz 등은
+  각자의 라이선스를 따릅니다.
+
+[Python 패키지] (전문: python 폴더 안 각 패키지의 *.dist-info 폴더)
+  - annotated-doc 0.0.6: MIT
+  - annotated-types 0.8.0: MIT
+  - anyio 4.16.0: MIT
+  - certifi 2026.10.23: MPL-2.0
+  - charset-normalizer 3.5.2: MIT
+  - click 8.5.1: BSD-3-Clause
+  - colorama 0.4.6: BSD License
+  - fastapi 0.163.0: MIT
+  - flatbuffers 25.12.19: Apache 2.0
+  - h11 0.16.0: MIT
+  - idna 3.20: BSD-3-Clause
+  - imageio-ffmpeg 0.8.1: BSD-2-Clause
+  - kaldi_native_fbank 1.23.1: Apache-2.0
+  - ml_dtypes 0.6.0: Apache-2.0
+  - numpy 2.5.4: BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0
+  - onnx 1.23.2: Apache-2.0
+  - onnxruntime 1.32.0: MIT License
+  - opentelemetry-api 1.45.2: Apache-2.0
+  - packaging 26.3: Apache-2.0 OR BSD-2-Clause
+  - protobuf 7.36.2: 3-Clause BSD License
+  - pydantic 2.14.3: MIT
+  - pydantic_core 2.50.4: MIT
+  - python-multipart 0.0.33: Apache-2.0
+  - RapidFuzz 3.14.6: MIT
+  - regex 2026.11.9: Apache-2.0 AND CNRI-Python
+  - requests 2.34.2: Apache-2.0
+  - sentencepiece 0.2.3: Apache-2.0
+  - sherpa_onnx 2.0.1: Apache licensed, as found in the LICENSE file
+  - sherpa-onnx-core 2.0.1: Apache-2.0
+  - starlette 1.10.0: BSD-3-Clause
+  - tiktoken 0.14.0: MIT License
+  - typing_extensions 4.16.0: PSF-2.0
+  - typing-inspection 0.4.5: MIT
+  - urllib3 2.8.0: MIT
+  - uvicorn 0.54.0: BSD-3-Clause
+
+[처음 실행할 때 내려받는 음성 인식 모델] (프로그램에 들어 있지 않고, 처음 실행할 때 받습니다)
+  - Whisper large-v3 / large-v3-turbo (OpenAI): MIT License (전문: licenses/Whisper-MIT.txt), k2-fsa/sherpa-onnx 변환본
+  - Silero VAD: MIT License, Copyright (c) 2020-present Silero Team
+    위 두 모델은 k2-fsa/sherpa-onnx의 공개 저장소에서 받고, 받지 못하면 공식 배포처의 예비 사본에서 받습니다.
+  - 한국어 Zipformer (k2-fsa/sherpa-onnx 공개 모델, KsponSpeech 데이터로 학습한 모델을 변환한 것)
+    배포처에 라이선스가 명시되어 있지 않습니다. k2-fsa/sherpa-onnx의 공개 저장소에서만 받으며,
+    받지 못하면 이 모델 없이 Whisper만으로 검사합니다.
