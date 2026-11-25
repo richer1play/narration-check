@@ -7,7 +7,7 @@
 
 **받기: [최신 버전](https://github.com/richer1play/narration-check/releases/latest)** (Windows 10/11, Mac Apple Silicon)
 · 사용법은 받은 폴더의 `사용법.pdf`에 있습니다.
-· zip 안에 무엇이 들어 있는지는 [PACKAGE.md](PACKAGE.md)에 한눈에 정리돼 있습니다.
+· zip 안에 든 이용 조건·라이선스·사용법의 원문 전체는 [PACKAGE.md](PACKAGE.md)에 있습니다.
 
 - 오류 문의: richer1play@gmail.com
 - 이용 조건: 개인·업무용 무료, 다시 배포·고쳐서 배포·판매 금지, 결과 보증 없음. 자세한 내용과 함께 든 공개 소프트웨어의 라이선스는
@@ -19,4 +19,5 @@
 
 - `.github/workflows/test-release.yml`: 릴리스의 zip을 받아 압축 풀기 → 시작 파일로 실행 → 실제 검사 → 검수 화면 확인.
   새 버전을 **pre-release(시험판)**로 공개하면 자동으로 시험하고, Windows와 Mac 모두 통과하면 정식 최신 버전으로 바꿉니다.
+- `PACKAGE.md`, `docs/package/`: zip에 든 고지·라이선스·사용법 파일 원문 (`ci/make_package_doc.py`로 만듦)
 - `ci/`: 시험용 녹음과 대본, 시험 스크립트. 시험용 녹음은 지어낸 문장을 합성 음성(espeak-ng)으로 읽은 것이며 실수 두 곳이 들어 있습니다.
