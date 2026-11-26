@@ -22,8 +22,9 @@ on:
         type: boolean
         default: false
 
+# 시험 작업은 읽기만 합니다(내려받은 프로그램과 npm 패키지를 실행하므로). 쓰기는 마지막 작업에만 줍니다.
 permissions:
-  contents: write   # 임시 릴리스의 파일을 받고, 통과한 시험판을 정식으로 바꾸는 데 필요
+  contents: read
 
 concurrency:
   group: test-${{ github.event.release.tag_name || inputs.tag }}
@@ -43,6 +44,8 @@ jobs:
       PYTHONUTF8: "1"   # 한글 출력 (Windows 콘솔 인코딩 대신 UTF-8)
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -81,7 +84,7 @@ jobs:
 
       - name: 브라우저 준비
         shell: bash
-        run: npm install --no-save --no-package-lock "playwright@$PLAYWRIGHT" && npx playwright install chromium
+        run: npm install --no-save --no-package-lock --ignore-scripts "playwright@$PLAYWRIGHT" && npx playwright install chromium
 
       - name: 검수 화면 시험
         shell: bash
@@ -114,6 +117,8 @@ jobs:
     timeout-minutes: 80
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -154,7 +159,7 @@ jobs:
         run: ~/오독체크/python/bin/python3.12 ci/smoke.py --model turbo --version "${TAG#v}" --out out
 
       - name: 브라우저 준비
-        run: npm install --no-save --no-package-lock "playwright@$PLAYWRIGHT" && npx playwright install chromium
+        run: npm install --no-save --no-package-lock --ignore-scripts "playwright@$PLAYWRIGHT" && npx playwright install chromium
 
       - name: 검수 화면 시험
         run: node ci/ui_smoke.mjs "$(cat out/base.txt)" "$(cat out/job_id.txt)" out
@@ -184,6 +189,8 @@ jobs:
     needs: [windows, mac]
     if: (github.event_name == 'release' && github.event.release.prerelease) || (github.event_name == 'workflow_dispatch' && inputs.publish)
     runs-on: ubuntu-latest
+    permissions:
+      contents: write   # 시험판을 정식으로 바꾸고 PACKAGE.md를 올리는 데 필요
     steps:
       - name: 시험판을 정식으로 바꾸고 최신 버전으로 지정
         env:
